@@ -42,6 +42,7 @@ params.assoc = "regenie" //Select regenie or plink2 for association testing
 params.script_dir = "/home/per/source/GWAS_scripts/GWAS_SCRIPTS"
 
 
+
 //General assoc / plink2 settings
 params.covarnames = "AgeAtVisitOne"
 params.maf = "0.00"
@@ -112,7 +113,7 @@ if (params.phenoname != "all"){
 
 
 //Channel with phenotypes
-pheno_channel = Channel.fromPath(params.phenofile) //Just use file() ? https://groups.google.com/g/nextflow/c/ifZZ6g7hCBo
+pheno_channel = Channel.fromPath(params.phenofile)
 
 
 /*
@@ -335,6 +336,7 @@ process run_plink_regression{
         --hwe ${params.hwe} \
         --mach-r2-filter ${params.mr2} \
         --out \${outfile_prefix}
+        ${params.universal_param}
 
     # + Outfiles:   
 
@@ -494,6 +496,7 @@ process run_regenie_step1{
         --lowmem \
         --lowmem-prefix tmp_rg \
         --out fit_out_${phenotype_name}
+        ${params.universal_param}
 
     """
 
@@ -548,6 +551,7 @@ process run_regenie_step2{
         --out \${outfile_prefix} \
         --minMAC ${params.mac} \
         --minINFO ${params.info}
+        ${params.universal_param}
     """
 
 }
