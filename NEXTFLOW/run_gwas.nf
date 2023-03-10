@@ -18,7 +18,7 @@
 nextflow.enable.dsl=2
 
 
-params.base_runfolder = "/proj/sens2019512/nobackup/users/perl/gwas_test/testruns"
+//params.base_runfolder = "/proj/sens2019512/nobackup/users/perl/gwas_test/testruns"
 
 //Given on comand line, no defaults here
 //params.id
@@ -26,10 +26,10 @@ params.base_runfolder = "/proj/sens2019512/nobackup/users/perl/gwas_test/testrun
 //params.phenoname 
 
 //GWAS regression and globals
-params.account = "sens2019512"
+//params.account = "sens2019512"
 
 //params.chr = "1-22"
-params.chr = "19,20"
+//params.chr = "19,20"
 //params.genoid = "scapis_test_chr1_dedup"
 //params.genofolder = "/proj/sens2019512/nobackup/users/perl/gwas_test/GENOTYPES/PGEN"
 
@@ -37,14 +37,14 @@ params.chr = "19,20"
 //params.covarpath = "/proj/sens2019512/nobackup/users/perl/gwas_test/PHENOTYPES"
 //params.covarfile = "phenotypes_for_plink_211015.txt"
 
-params.assoc = "regenie" //Select regenie or plink2 for association testing
+//params.assoc = "regenie" //Select regenie or plink2 for association testing
 //params.assoc = "plink2" //Select regenie or plink2 for association testing
-params.script_dir = "/home/per/source/GWAS_scripts/GWAS_SCRIPTS"
+//params.script_dir = "/home/per/source/GWAS_scripts/GWAS_SCRIPTS"
 
 
 
 //General assoc / plink2 settings
-params.covarnames = "AgeAtVisitOne"
+//params.covarnames = "AgeAtVisitOne"
 params.maf = "0.00"
 params.mac = "30"
 params.vif = "10"
@@ -65,7 +65,7 @@ params.trait_type = 'qt'   //qt / bt    //TODO: Could add automatic detection si
 params.info = 0.7 //Info score cutoff for imputed data, use params.mr2 above for plink2
 params.covarnames_cat = "" // Need to add categorical covars separately
 params.regenie_step1_geno = "regenie_step1/scapis_regenie_step1_all" //Base name of whole genome genotype set to be used for regenie step 1
-
+params.pheno_specific_batch = false  //Read a per phenotype covar with batch_ prefixed to phenotype name (categorical)
 
 //cojo settings
 params.cojo_ref_bed_genoid = "BED/test_data_pipeline_sorted"
@@ -111,33 +111,9 @@ if (params.phenoname != "all"){
     phenoname_channel = Channel.fromList(phenonames)
 }
 
-
 //Channel with phenotypes
 pheno_channel = Channel.fromPath(params.phenofile)
 
-
-/*
- * Run main GWAS script (regressions) 
- */
-
-//process run_GWAS_wrapper{
-//    label 'std_job_1_core'
-//    
-//    output:
-//    path '*.glm.*'
-//    path '*_gwas_signif.txt'
-//    path '*_gwas_params.txt'
-//    path '*.Rdata'
-//
-//    script:
-//    """
-//    cd ${params.base_runfolder}
-//    run_gwas.sh --id ${params.id} --phenofile ${params.phenofile} --phenoname ${params.phenoname} --chr ${params.chr} \
-//    --genoid ${params.genoid} --phenofolder ${params.phenofolder} --covarfile ${params.covarfile} --covarname ${params.covarnames} \
-//    --maf ${params.maf} --mac ${params.mac} --vif ${params.vif} --hwe ${params.hwe} --mr2 "${params.mr2}" --geno ${params.geno} \
-//    --mind ${params.mind} --minutes ${params.gwas_minutes} --ask ${params.ask}
-//    """
-//}
 
 /*
  * Log init, etc. before regression,
@@ -228,7 +204,7 @@ process run_plink_regression{
    
 
     script:
-    pgen_prefix = "${params.genofolder}/${params.genoid}_chr${chr}"
+    pgen_prefix = "${params.genofolder}/${params.genoid}_${chr}"
     logchr      = "${params.id}_gwas_chrom${chr}.log"
     
     """
@@ -335,7 +311,7 @@ process run_plink_regression{
         --geno ${params.geno} \
         --hwe ${params.hwe} \
         --mach-r2-filter ${params.mr2} \
-        --out \${outfile_prefix}
+        --out \${outfile_prefix} \
         ${params.universal_param}
 
     # + Outfiles:   
@@ -465,25 +441,22 @@ process run_regenie_step1{
         covarnames_checked = ""
     }
 
+    
     if (params.covarnames_cat){
-        covarnames_cat_checked = "--catCovarList " + params.covarnames_cat
+        cat_covars = params.covarnames_cat
+        if (params.pheno_specific_batch){
+            cat_covars = cat_covars + ",batch_" + phenotype_name
+        }
+        covarnames_cat_checked = "--catCovarList " + cat_covars
+    }else if (params.pheno_specific_batch){
+        covarnames_cat_checked = "--catCovarList batch_" + phenotype_name
     }else{
         covarnames_cat_checked = ""
     }
+        
 
     """
     #Skipping logging for now, pendig removal or not from plink2 implementation, should slim down shell code and adapt groovy solutions
-
-    # regenie \
-    #     --step 1 \
-    #     --pgen ${step1_pgen_prefix} \
-    #     --covarFile ${params.covarfile} ${covarnames_checked} ${covarnames_cat_checked} \
-    #     --phenoFile ${params.phenofile} --phenoColList ${params.phenoname} \
-    #     --${params.trait_type} \
-    #     --bsize ${params.bsize1} \
-    #     --lowmem \
-    #     --lowmem-prefix tmp_rg \
-    #     --out fit_out 
 
         regenie \
         --step 1 \
@@ -495,7 +468,7 @@ process run_regenie_step1{
         --bsize ${params.bsize1} \
         --lowmem \
         --lowmem-prefix tmp_rg \
-        --out fit_out_${phenotype_name}
+        --out fit_out_${phenotype_name} \
         ${params.universal_param}
 
     """
@@ -518,7 +491,7 @@ process run_regenie_step2{
     tuple val(phenotype_name), path('*.regenie'), path('*_gwas_chr*.log')
 
     script:
-    pgen_prefix = "${params.genofolder}/${params.genoid}_chr${chr}"
+    pgen_prefix = "${params.genofolder}/${params.genoid}_${chr}"
     logchr      = "${params.id}_gwas_chrom${chr}.log"
 
     //Check if covars set for options to allow skipping if unset
@@ -528,8 +501,12 @@ process run_regenie_step2{
         covarnames_checked = ""
     }
 
-    if (params.covarnames_cat){
-        covarnames_cat_checked = "--catCovarList " + params.covarnames_cat
+    if (params.covarnames_cat || params.pheno_specific_batch){
+        cat_covars = params.covarnames_cat
+        if(params.pheno_specific_batch){
+            cat_covars = cat_covars + ",batch_" + phenotype_name
+        }
+        covarnames_cat_checked = "--catCovarList " + cat_covars 
     }else{
         covarnames_cat_checked = ""
     }
@@ -550,7 +527,7 @@ process run_regenie_step2{
         --pred fit_out_${phenotype_name}_pred.list \
         --out \${outfile_prefix} \
         --minMAC ${params.mac} \
-        --minINFO ${params.info}
+        --minINFO ${params.info} \
         ${params.universal_param}
     """
 
@@ -600,7 +577,7 @@ process run_cojo {
     script:
 
     """
-    gcta64  --bfile ${params.genofolder}/${params.cojo_ref_bed_genoid}_chr${chr}  --thread-num 16 --chr ${chr} --cojo-file ${cojo_input_file} --cojo-slct --cojo-p ${params.cojo_pval} --cojo-wind ${params.cojo_window} --cojo-collinear ${params.cojo_colline} --out ${params.id}_${phenotype_name}_chr${chr}
+    gcta64  --bfile ${params.genofolder}/${params.cojo_ref_bed_genoid}_${chr}  --thread-num 16 --chr ${chr} --cojo-file ${cojo_input_file} --cojo-slct --cojo-p ${params.cojo_pval} --cojo-wind ${params.cojo_window} --cojo-collinear ${params.cojo_colline} --out ${params.id}_${phenotype_name}_chr${chr}
     """
 
 //ref for dev from settings
@@ -708,7 +685,7 @@ process finish_log{
 process create_report_plink {
     label 'long_job_16_core'
     label 'R_4_1_1'
-    publishDir "${params.id}/association"
+    publishDir "${params.id}/report"
     
     input:
     path gwas_params
@@ -719,6 +696,7 @@ process create_report_plink {
 
     output:
     path '*.html'
+    path 'lambda_*.txt', emit: lambda
 
     
     script:
@@ -749,6 +727,7 @@ process create_report_regenie {
 
     output:
     path '*.html'
+    path 'lambda_*.txt', emit: lambda
     
     
     //path gwas_signif
@@ -764,6 +743,24 @@ process create_report_regenie {
 
     ${params.script_dir}/review_gwas_regenie.R ${params.id} ${pname} ${chrom_str} ${params.script_dir}
     """
+}
+
+process concat_lambdas{
+    label 'short_job_1_core'
+    publishDir "${params.id}/report"
+
+    input:
+    path single_lambda 
+
+    output:
+    path "lambdas.tsv"
+
+    script:
+    """
+    cat *.txt > lambdas.tsv
+    """
+
+
 }
 
 
@@ -798,6 +795,7 @@ workflow{
     else if(params.assoc == 'regenie'){
         //create_report_regenie(create_parameterfile.out, phenoname_channel, chr_channel.collect(), run_regenie_step2.out.assoc_results.collect(), run_regenie_step2.out.assoc_log.collect())
         create_report_regenie(create_parameterfile.out, chr_channel.collect(), run_regenie_step2.out.groupTuple())
+        concat_lambdas(create_report_regenie.out.lambda.collect())
     }
 }
 

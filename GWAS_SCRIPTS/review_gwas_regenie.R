@@ -852,10 +852,10 @@ lambda = median(obs.stats, na.rm = TRUE)/median(expect.stats, na.rm = TRUE) 	# G
 # lambda = median(obs.stats)/qchisq(0.5, 1) # tiny difference for small numbers of p-values  p < 20000 
  
  
+#Write phenotype name and lambda to file for later collection into a file with all lambdas for the run
+#phenoname lambda
 
-
-
-
+writeLines(paste(phenoname, "\t", lambda, sep=""), paste("lambda_", phenoname, ".txt", sep=""))
 
 ## +++ Excel with unpruned or pruned global significant markers     
 
