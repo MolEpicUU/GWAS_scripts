@@ -727,6 +727,7 @@ process create_report_regenie {
 
     output:
     path '*.html'
+    path '*.Rdata'
     path 'lambda_*.txt', emit: lambda
     
     
