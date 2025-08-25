@@ -1,6 +1,6 @@
 
 /*
- * Pipeline for running the MolEpi GWAS scripts.
+ * Pipeline for running the MolEpi GWAS scripts, microbiota branch optimized for large number of phenotypes.
  *
  * Per Lundmark, Molecular Epidemiology, Uppsala University
  * 
@@ -8,77 +8,7 @@
  *
  */
 
-
-/*
- * Pipeline input defaults.
- * Specify on command line or give config file to override defaults.  TODO config templates for users
- * 
- */
-
 nextflow.enable.dsl=2
-
-
-//params.base_runfolder = "/proj/sens2019512/nobackup/users/perl/gwas_test/testruns"
-
-//Given on comand line, no defaults here
-//params.id
-//params.phenofile  
-//params.phenoname 
-
-//GWAS regression and globals
-//params.account = "sens2019512"
-
-//params.chr = "1-22"
-//params.chr = "19,20"
-//params.genoid = "scapis_test_chr1_dedup"
-//params.genofolder = "/proj/sens2019512/nobackup/users/perl/gwas_test/GENOTYPES/PGEN"
-
-//params.phenofolder = "/proj/sens2019512/nobackup/users/perl/gwas_test/PHENOTYPES"
-//params.covarpath = "/proj/sens2019512/nobackup/users/perl/gwas_test/PHENOTYPES"
-//params.covarfile = "phenotypes_for_plink_211015.txt"
-
-//params.assoc = "regenie" //Select regenie or plink2 for association testing
-//params.assoc = "plink2" //Select regenie or plink2 for association testing
-//params.script_dir = "/home/per/source/GWAS_scripts/GWAS_SCRIPTS"
-
-
-
-//General assoc / plink2 settings
-//params.covarnames = "AgeAtVisitOne"
-//params.maf = "0.00"
-//params.mac = "30"
-//params.vif = "10"
-//params.hwe = "1.0e-6"
-//params.mr2 = "0.8 2.0" //TODO: split this setting up and use lower for regenie as well, no so nice w space sep param?
-//params.geno = "0.1"
-//params.mind = "0.1"
-//params.plink2_version="plink2/2.00-alpha-2.3-20200124"
-//params.gwas_partition = "node"
-//params.minspace=1  //Old default 1 000 000 000
-
-//regenie settings
-//params.bsize1 = '1000'
-//params.bsize2 = '400'
-//params.step1_extract = "markerlist_for_inclusion.list" // List of markers from the full dataset to retain for step1 whole genome regression
-//params.trait_type = 'qt'   //qt / bt    //TODO: Could add automatic detection since running every phenotype separately, perhaps not worth the risk
-//params.trait_type = 'bt'   //qt / bt
-//params.info = 0.7 //Info score cutoff for imputed data, use params.mr2 above for plink2
-//params.covarnames_cat = "" // Need to add categorical covars separately
-//params.regenie_step1_geno = "regenie_step1/scapis_regenie_step1_all" //Base name of whole genome genotype set to be used for regenie step 1
-//params.pheno_specific_batch = false  //Read a per phenotype covar with batch_ prefixed to phenotype name (categorical)
-
-//cojo settings
-//params.cojo_ref_bed_genoid = "BED/test_data_pipeline_sorted"
-//params.cojo_pval = '5e-8'
-//params.cojo_window = '10000'
-//params.cojo_colline = '0.9'
-//params.cojo_maf = '' //Need this? Should be set at higher level in the script not specific to the cojo analysis?
-//params.run_cojo = true
-//params.run_cojo = false
-
-//report settings
-//params.review_minutes = "90"
-
 
 //Process chromosome list
 clean_chr = params.chr.replaceAll("\\s","") //Remove any whitespace
@@ -164,228 +94,6 @@ process init_log{
 
 
 
-
-process test_redir{
-    label 'short_job_16_core'
-    publishDir "${params.id}/association" 
-
-    output:
-    path 'test_ut*'
-
-    script:
-    
-    """
-    {
-      ls
-      du -h
-    } 2>&1 | tee -a test_ut_chr1.log
-    """
-}
-
-
-
-
-/*
- * Run plink regressions for GWAS analysis on a single chr.
- */
-
-process run_plink_regression{
-    label 'long_job_16_core'
-    label 'plink2'
-    publishDir "${params.id}/association"
-
-    input:
-    val chr
-    val params.phenofile
-
-    output:
-    path '*_gwas_chrom*.log', emit: assoc_log
-    path '*.glm.*', emit: assoc_results //Association results from linear, or logistic/firth reg.
-   
-
-    script:
-    pgen_prefix = "${params.genofolder}/${params.genoid}_${chr}"
-    logchr      = "${params.id}_gwas_chrom${chr}.log"
-    
-    """
-    ## Header for per chr log
-    { echo ""
-    START=\$(date +%s) 
-    echo -n "  "
-    date 
-    echo "  Job identifier: " ${params.id}
-    echo "  Starting job for chromosome ${chr}"
-    echo "  Genotype input file prefix: ${pgen_prefix}"
-    echo "  Phenotype file: ${params.phenofile}"
-    echo "  Phenotype name(s): ${params.phenoname}"
-    echo "  Covariate file: ${params.covarfile}"
-    echo "  Covariate name(s): ${params.covarnames}"
-    echo "  Threshold for minor allele frequency (mac): ${params.mac}"
-    echo "  Threshold for Hardy-Weinberg p-value: ${params.hwe}"
-    echo "  Mach-r2 imputation quality range: ${params.mr2}"
-    echo "  Threshold for minor allele frequency (maf): ${params.maf}"
-    echo "  Maximum variance inflation factor (vif): ${params.vif}" 
-    echo "  Maximum missing call rate for markers: ${params.geno} " 
-    echo "  Maximum missing call rate for samples: ${params.mind} " 
-    echo ""
-    
-    # Check if phenofile, covarfile is available
-    if [ ! -f ${params.phenofile} ]; then
-        echo ""
-        echo "  ERROR: Phenotype input file '${params.phenofile}' not found."
-        echo ""
-        exit 1
-    else
-        num_samples=\$( wc -l ${params.phenofile} | awk '{print \$1}' )
-        num_samples=\$(( \${num_samples} - 1 ))
-        echo "  Phenotype file available, with \${num_samples} samples."   
-    fi
-
-    if [ ! -f ${params.covarfile} ]; then
-        echo ""
-        echo "  ERROR (gwas_chr.sh): Covariate input file '${params.covarfile}' not found."
-        echo ""
-        exit 1
-    else
-        num_samples=\$( wc -l ${params.covarfile} | awk '{print \$1}' )
-        num_samples=\$(( \${num_samples} - 1 ))
-        echo "  Covariates file available, with \${num_samples} samples." 
-        clist=\$( echo ${params.covarnames} | sed 's/,/ /g' )
-        for name in  \${clist[*]}
-        do
-            indicator=\$( head -1 ${params.covarfile} | grep \${name} | wc -l )
-            if [ \$indicator -ne 1 ]; then
-                echo ""
-                echo "  ERROR (gwas_chr.sh): Covariate file '${params.covarfile}' does not contain the column '\${name}'"
-                echo ""
-                exit 1
-            fi
-        done
-    fi
-    echo ""
-
-    # TODO: Consider replacing with groovy code and avooid all the file creation below for the sets
-
-    # Find the samples which are common to genotype, phenotype, and covariates
-    # consider only these samples in the regression, so that QC is done on these samples only 
-
-    rnum=\$(( 1 + RANDOM%10000 ))   # avoid interference with jobs running parallel
-
-    geno_samples="geno_samples_chr${chr}_\${rnum}.txt"
-    awk '{print \$2}' ${pgen_prefix}.psam | tail -n +2 | sort > \${geno_samples}
-
-    covar_samples="covar_samples_chr${chr}_\${rnum}.txt"
-    awk '{print \$2}' ${params.covarfile} | tail -n +2 | sort > \${covar_samples}
-
-    pheno_samples="pheno_samples_chr${chr}_\${rnum}.txt"
-    awk '{print \$2}' ${params.phenofile} | tail -n +2 | sort > \${pheno_samples}
-
-    geno_covar_samples="geno_covar_samples_chr${chr}_\${rnum}.txt"
-    comm -12 \${geno_samples} \${covar_samples} | sort > \${geno_covar_samples}
-
-    files2keep="files2keep_chr${chr}_\${rnum}.txt"
-    comm -12 \${geno_covar_samples} \${pheno_samples} | awk 'BEGIN{FS="\t"} {print \$1, \$1}' > \${files2keep}
-
-    nr_common=\$( wc -l \${files2keep} | awk '{print \$1}' )
-
-    echo "  We have \${nr_common} common samples in genotype, phenotype, and covariate files." 
-    echo ""
-
-    rm -f \${geno_samples} \${covar_samples} \${pheno_samples} \${geno_covar_samples} # for this chromosome
-
-
-    # Run plink2 on a single chromosome for the regressions.
-    outfile_prefix="${params.id}_gwas_chr"${chr} # OBS!! : Naming convention also used elsewhere!
-
-    plink2 --glm hide-covar 'cols=chrom,pos,ref,alt1,a1freq,beta,se,p,nobs' \
-        --pfile ${pgen_prefix} \
-        --keep \${files2keep} \
-        --pheno ${params.phenofile} --pheno-name ${params.phenoname} \
-        --covar ${params.covarfile} --covar-name ${params.covarnames} \
-        --no-psam-pheno \
-        --covar-variance-standardize \
-        --mac ${params.mac} \
-        --maf ${params.maf} \
-        --vif ${params.vif} \
-        --mind ${params.mind} \
-        --geno ${params.geno} \
-        --hwe ${params.hwe} \
-        --mach-r2-filter ${params.mr2} \
-        --out \${outfile_prefix} \
-        ${params.universal_param}
-
-    # + Outfiles:   
-
-    pname=\$( echo ${params.phenoname} | tr -s ',' '\t' )
-    phenoarray=(\$pname)
-    echo ""
-    echo "  Number of elements in phenoname: \${#phenoarray[*]}" 
-    echo ""
-    echo "  Regression results: "
-
-    for pname in  \${phenoarray[*]}
-    do
-        echo ""
-        echo "  Phenoname: \$pname" 
-        echo -n "    "
-        out_glm_lin=\${outfile_prefix}"."\${pname}".glm.linear"    # linear regression
-        out_glm_log=\${outfile_prefix}"."\${pname}".glm.logistic"  # logistic regression [ case/control ] 
-
-        if [ ! -s "\${out_glm_lin}"  -a  ! -s "\${out_glm_log}"  ];then
-            echo ""
-            echo "  ERROR: No plink output file \"\${out_glm_lin}\" or \"\${out_glm_log}\" written."
-            echo "                       See the error messages in the logfile ${params.id}_gwas_chrom${chr}_regression.log"   # logchr="${params.id}_gwas_chrom${chr}.log"
-            echo "" 
-            out_logf=\${outfile_prefix}".log"
-            rm -f \${out_logf} \${files2keep}  # OBS!: we delete the plink2 logfile because the batchlog is sufficient!  
-            echo ""    
-            exit 1
-        fi
-
-        if [ -s "\${out_glm_lin}" ];then
-            ls -l \${out_glm_lin}
-            entries=\$( wc -l \${out_glm_lin} | awk '{print \$1}' )
-            entries=\$(( \${entries} - 1 ))
-            echo "    Number of entries in output file (.glm.linear) for phenoname \"\${pname}\": \${entries}"
-            num_NA=\$( cat \${out_glm_lin} | awk '{print \$NF}' | grep NA | wc -l )
-            echo "    Number of entries with unassigned (NA) p-values: \${num_NA}"
-            out_logf=\${outfile_prefix}".log"
-        rm -f \${out_logf} \${files2keep}  # OBS!: we delete the plink2 logfile because the batchlog is sufficient!  
-        echo ""    
-        fi
-
-        if [ -s "\${out_glm_log}" ];then
-            ls -l \${out_glm_log}
-            entries=\$( wc -l \${out_glm_log} | awk '{print \$1}' )
-            entries=\$(( \${entries} - 1 ))
-            echo "    Number of entries in output file (.glm.logistic) for phenoname \"\${pname}\": \${entries}"
-            num_NA=\$( cat \${out_glm_log} | awk '{print \$NF}' | grep NA | wc -l )
-            echo "    Number of entries with unassigned (NA) p-values: \${num_NA}"
-            out_logf=\${outfile_prefix}".log"
-            rm -f \${out_logf} \${files2keep}  # OBS!: we delete the plink2 logfile because the batchlog is sufficient!  
-            echo ""    
-        fi
-
-    done
-    echo ""
-
-    # Finish up logs 
-
-    END=\$(date +%s)
-    DIFF=\$(( \$END - \$START ))
-    echo "  Run time: \$DIFF seconds" 
-    echo "" 
-    echo -n "  "  
-    date
-    echo "  Done." 
-    echo "" 
-    } 2>&1 | tee -a '${logchr}'
-    """
-}
-
-
-
-
 process list_phenotypes{
     label 'short_job_1_core'
     
@@ -395,8 +103,6 @@ process list_phenotypes{
     """
     head -n1 ${params.phenofile} | tr '\t| ' '\n' | tail -n +3 > phenotype_names.list
     """
-
-
 }
 
 
@@ -497,6 +203,8 @@ process run_regenie_step1{
 
 }
 
+
+
 process list_nonconverged_phenotypes{
     label 'short_job_1_core'
     publishDir "${params.id}/association"
@@ -577,11 +285,9 @@ process run_regenie_step2{
         --niter 300 \
         ${params.universal_param}
     """
-
 }
 
 
-//Dropping cojo temporarily for testrun (error)
 
 //Convert association test output to cojo input format
 process convert_cojo_input_regenie{
@@ -638,7 +344,6 @@ process run_cojo {
 
 
 
-
 /*
  * Create a parameter file with information for the 
  * review script.
@@ -687,8 +392,9 @@ process create_parameterfile{
 }
 
 
+
 /*
- * Finish up logging from plink regression 
+ * Finish up logging 
  */
 
 process finish_log{
@@ -715,47 +421,6 @@ process finish_log{
     """
 }
 
-
-
-
-
-
-
-
-
-/*
- * Run reporting script (creates a html report for GWAS results)
- */
-
-//TODO: Get gwas_params from output of the process creating it.
-// Stop using params file, just create variables for it nad pass it to the process and R script (expand parameters in both)
-
-process create_report_plink {
-    label 'long_job_16_core'
-    label 'R_4_1_1'
-    publishDir "${params.id}/report"
-    
-    input:
-    path gwas_params
-    val pname
-    val chromosomes
-    path assoc_results
-    path assoc_log
-
-    output:
-    path '*.html'
-    path 'lambda_*.txt', emit: lambda
-
-    
-    script:
-    chrom_str = chromosomes.join(',')
-    
-    """
-    echo "${chrom_str}"
-
-    ${params.script_dir}/review_gwas_plink2.R ${params.id} ${pname} ${chrom_str} ${params.script_dir}
-    """
-}
 
 
 process create_report_regenie {
@@ -792,10 +457,9 @@ process create_report_regenie {
 
 
     """
-
-
-
 }
+
+
 
 process concat_lambdas{
     label 'short_job_1_core'
@@ -816,13 +480,12 @@ process concat_lambdas{
 }
 
 
+
 // Main workflow definition
 workflow{
     init_log()
     
-    if (params.assoc == "plink2"){
-        run_plink_regression(chr_channel, pheno_channel)
-    }else if (params.assoc == "regenie"){
+    if (params.assoc == "regenie"){
         if (params.phenoname == "all"){
             list_phenotypes()
             check_pheno_nonmissing(list_phenotypes.out.splitText().map{it -> it.trim()})
@@ -847,22 +510,17 @@ workflow{
         if(params.run_cojo){
             convert_cojo_input_regenie(run_regenie_step2.out.groupTuple())
             run_cojo(chr_channel, convert_cojo_input_regenie.out.groupTuple())
-
         }
     }
 
     create_parameterfile()
     finish_log(init_log.out)
 
-    if(params.assoc == 'plink2'){
-        create_report_plink(create_parameterfile.out, phenoname_channel, chr_channel.collect(), run_plink_regression.out.assoc_results.collect(), run_plink_regression.out.assoc_log.collect())
-    }
-    else if(params.assoc == 'regenie'){
-        //create_report_regenie(create_parameterfile.out, phenoname_channel, chr_channel.collect(), run_regenie_step2.out.assoc_results.collect(), run_regenie_step2.out.assoc_log.collect())
+    if(params.assoc == 'regenie'){
         create_report_regenie(create_parameterfile.out, chr_channel.collect(), run_regenie_step2.out.groupTuple())
         concat_lambdas(create_report_regenie.out.lambda.collect())
     }
 }
 
 
-//Add check for consequences of variation for example the ensembl tool instead of just gene link and nearest gene stuff.
+//Add check for consequences of variation for example the ensembl tool instead of just gene link and nearest gene stuff?
