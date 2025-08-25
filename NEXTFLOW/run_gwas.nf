@@ -18,7 +18,7 @@
 nextflow.enable.dsl=2
 
 
-params.base_runfolder = "/proj/sens2019512/nobackup/users/perl/gwas_test/testruns"
+//params.base_runfolder = "/proj/sens2019512/nobackup/users/perl/gwas_test/testruns"
 
 //Given on comand line, no defaults here
 //params.id
@@ -26,10 +26,10 @@ params.base_runfolder = "/proj/sens2019512/nobackup/users/perl/gwas_test/testrun
 //params.phenoname 
 
 //GWAS regression and globals
-params.account = "sens2019512"
+//params.account = "sens2019512"
 
 //params.chr = "1-22"
-params.chr = "19,20"
+//params.chr = "19,20"
 //params.genoid = "scapis_test_chr1_dedup"
 //params.genofolder = "/proj/sens2019512/nobackup/users/perl/gwas_test/GENOTYPES/PGEN"
 
@@ -37,47 +37,47 @@ params.chr = "19,20"
 //params.covarpath = "/proj/sens2019512/nobackup/users/perl/gwas_test/PHENOTYPES"
 //params.covarfile = "phenotypes_for_plink_211015.txt"
 
-params.assoc = "regenie" //Select regenie or plink2 for association testing
+//params.assoc = "regenie" //Select regenie or plink2 for association testing
 //params.assoc = "plink2" //Select regenie or plink2 for association testing
-params.script_dir = "/home/per/source/GWAS_scripts/GWAS_SCRIPTS"
+//params.script_dir = "/home/per/source/GWAS_scripts/GWAS_SCRIPTS"
 
 
 
 //General assoc / plink2 settings
-params.covarnames = "AgeAtVisitOne"
-params.maf = "0.00"
-params.mac = "30"
-params.vif = "10"
-params.hwe = "1.0e-6"
-params.mr2 = "0.8 2.0" //TODO: split this setting up and use lower for regenie as well, no so nice w space sep param?
-params.geno = "0.1"
-params.mind = "0.1"
-params.plink2_version="plink2/2.00-alpha-2.3-20200124"
-params.gwas_partition = "node"
-params.minspace=1  //Old default 1 000 000 000
+//params.covarnames = "AgeAtVisitOne"
+//params.maf = "0.00"
+//params.mac = "30"
+//params.vif = "10"
+//params.hwe = "1.0e-6"
+//params.mr2 = "0.8 2.0" //TODO: split this setting up and use lower for regenie as well, no so nice w space sep param?
+//params.geno = "0.1"
+//params.mind = "0.1"
+//params.plink2_version="plink2/2.00-alpha-2.3-20200124"
+//params.gwas_partition = "node"
+//params.minspace=1  //Old default 1 000 000 000
 
 //regenie settings
-params.bsize1 = '1000'
-params.bsize2 = '400'
+//params.bsize1 = '1000'
+//params.bsize2 = '400'
 //params.step1_extract = "markerlist_for_inclusion.list" // List of markers from the full dataset to retain for step1 whole genome regression
-params.trait_type = 'qt'   //qt / bt    //TODO: Could add automatic detection since running every phenotype separately, perhaps not worth the risk
+//params.trait_type = 'qt'   //qt / bt    //TODO: Could add automatic detection since running every phenotype separately, perhaps not worth the risk
 //params.trait_type = 'bt'   //qt / bt
-params.info = 0.7 //Info score cutoff for imputed data, use params.mr2 above for plink2
-params.covarnames_cat = "" // Need to add categorical covars separately
-params.regenie_step1_geno = "regenie_step1/scapis_regenie_step1_all" //Base name of whole genome genotype set to be used for regenie step 1
-
+//params.info = 0.7 //Info score cutoff for imputed data, use params.mr2 above for plink2
+//params.covarnames_cat = "" // Need to add categorical covars separately
+//params.regenie_step1_geno = "regenie_step1/scapis_regenie_step1_all" //Base name of whole genome genotype set to be used for regenie step 1
+//params.pheno_specific_batch = false  //Read a per phenotype covar with batch_ prefixed to phenotype name (categorical)
 
 //cojo settings
-params.cojo_ref_bed_genoid = "BED/test_data_pipeline_sorted"
-params.cojo_pval = '5e-8'
-params.cojo_window = '10000'
-params.cojo_colline = '0.9'
-params.cojo_maf = '' //Need this? Should be set at higher level in the script not specific to the cojo analysis?
+//params.cojo_ref_bed_genoid = "BED/test_data_pipeline_sorted"
+//params.cojo_pval = '5e-8'
+//params.cojo_window = '10000'
+//params.cojo_colline = '0.9'
+//params.cojo_maf = '' //Need this? Should be set at higher level in the script not specific to the cojo analysis?
 //params.run_cojo = true
-params.run_cojo = false
+//params.run_cojo = false
 
 //report settings
-params.review_minutes = "90"
+//params.review_minutes = "90"
 
 
 //Process chromosome list
@@ -111,33 +111,9 @@ if (params.phenoname != "all"){
     phenoname_channel = Channel.fromList(phenonames)
 }
 
-
 //Channel with phenotypes
 pheno_channel = Channel.fromPath(params.phenofile)
 
-
-/*
- * Run main GWAS script (regressions) 
- */
-
-//process run_GWAS_wrapper{
-//    label 'std_job_1_core'
-//    
-//    output:
-//    path '*.glm.*'
-//    path '*_gwas_signif.txt'
-//    path '*_gwas_params.txt'
-//    path '*.Rdata'
-//
-//    script:
-//    """
-//    cd ${params.base_runfolder}
-//    run_gwas.sh --id ${params.id} --phenofile ${params.phenofile} --phenoname ${params.phenoname} --chr ${params.chr} \
-//    --genoid ${params.genoid} --phenofolder ${params.phenofolder} --covarfile ${params.covarfile} --covarname ${params.covarnames} \
-//    --maf ${params.maf} --mac ${params.mac} --vif ${params.vif} --hwe ${params.hwe} --mr2 "${params.mr2}" --geno ${params.geno} \
-//    --mind ${params.mind} --minutes ${params.gwas_minutes} --ask ${params.ask}
-//    """
-//}
 
 /*
  * Log init, etc. before regression,
@@ -228,7 +204,7 @@ process run_plink_regression{
    
 
     script:
-    pgen_prefix = "${params.genofolder}/${params.genoid}_chr${chr}"
+    pgen_prefix = "${params.genofolder}/${params.genoid}_${chr}"
     logchr      = "${params.id}_gwas_chrom${chr}.log"
     
     """
@@ -335,7 +311,7 @@ process run_plink_regression{
         --geno ${params.geno} \
         --hwe ${params.hwe} \
         --mach-r2-filter ${params.mr2} \
-        --out \${outfile_prefix}
+        --out \${outfile_prefix} \
         ${params.universal_param}
 
     # + Outfiles:   
@@ -437,9 +413,18 @@ process check_pheno_nonmissing{
     tuple val(phenotype_name), path("nonmissing_*.list")
 
     script:
+    if (params.pheno_specific_batch && params.covarnames){
+        combined_covars = params.covarnames + ",batch_" + phenotype_name
+    }
+    if (params.covarnames){
+        combined_covars = params.covarnames
+    }
+    if (params.pheno_specific_batch){
+        combined_covars = "batch_" + phenotype_name
+    }
 
     """
-    python3 ${params.script_dir}/list_no_NA_samples.py -i ${params.phenofile} -p ${phenotype_name} -o nonmissing_${phenotype_name}.list
+    python3 ${params.script_dir}/list_no_NA_samples.py -p ${params.phenofile} -pn ${phenotype_name} -c ${params.covarfile} -cn ${combined_covars} -o nonmissing_${phenotype_name}.list
     """
 }
 
@@ -447,13 +432,14 @@ process check_pheno_nonmissing{
 
 process run_regenie_step1{
     label 'long_job_16_core'
+    label 'plink2'
     publishDir "${params.id}/association"
 
     input:
     tuple val(phenotype_name), path(nonmiss_list)
 
     output:
-    tuple val(phenotype_name), path('fit_out*')
+    tuple val(phenotype_name), path('fit_out*')  //, val(converged)
 
     script:
     step1_pgen_prefix = "${params.genofolder}/${params.regenie_step1_geno}"
@@ -465,48 +451,74 @@ process run_regenie_step1{
         covarnames_checked = ""
     }
 
+    
     if (params.covarnames_cat){
-        covarnames_cat_checked = "--catCovarList " + params.covarnames_cat
+        cat_covars = params.covarnames_cat
+        if (params.pheno_specific_batch){
+            cat_covars = cat_covars + ",batch_" + phenotype_name
+        }
+        covarnames_cat_checked = "--catCovarList " + cat_covars
+    }else if (params.pheno_specific_batch){
+        covarnames_cat_checked = "--catCovarList batch_" + phenotype_name
     }else{
         covarnames_cat_checked = ""
     }
+        
 
     """
     #Skipping logging for now, pendig removal or not from plink2 implementation, should slim down shell code and adapt groovy solutions
 
-    # regenie \
-    #     --step 1 \
-    #     --pgen ${step1_pgen_prefix} \
-    #     --covarFile ${params.covarfile} ${covarnames_checked} ${covarnames_cat_checked} \
-    #     --phenoFile ${params.phenofile} --phenoColList ${params.phenoname} \
-    #     --${params.trait_type} \
-    #     --bsize ${params.bsize1} \
-    #     --lowmem \
-    #     --lowmem-prefix tmp_rg \
-    #     --out fit_out 
+    #Filter on maf per phenotype to avoid low variance error in analysis
+    plink2 \
+        --pfile ${step1_pgen_prefix} \
+        --keep ${nonmiss_list} \
+        --maf 0.01 \
+        --write-snplist \
+        --out perpheno_maf0.01_${phenotype_name}
 
-        regenie \
+    regenie \
         --step 1 \
         --pgen ${step1_pgen_prefix} \
         --keep ${nonmiss_list} \
+        --extract perpheno_maf0.01_${phenotype_name}.snplist \
         --covarFile ${params.covarfile} ${covarnames_checked} ${covarnames_cat_checked} \
         --phenoFile ${params.phenofile} --phenoColList ${phenotype_name} \
         --${params.trait_type} \
         --bsize ${params.bsize1} \
         --lowmem \
         --lowmem-prefix tmp_rg \
-        --out fit_out_${phenotype_name}
+        --out fit_out_${phenotype_name} \
+        --maxCatLevels 200 \
+        --par-region b37 \
+        --niter 300 \
         ${params.universal_param}
 
     """
 
-
-
 }
+
+process list_nonconverged_phenotypes{
+    label 'short_job_1_core'
+    publishDir "${params.id}/association"
+
+    input: 
+    tuple val(phenotype_name), path(step1_fit_out)
+
+    output:
+    path('non-converged_phenotypes.txt')
+
+    script:
+    """
+    echo $phenotype_name >  non-converged_phenotypes.txt
+    """
+}
+
+
 
 process run_regenie_step2{
     label 'long_job_16_core'
     publishDir "${params.id}/association"
+    errorStrategy 'ignore'
 
     input:
     each chr
@@ -515,10 +527,10 @@ process run_regenie_step2{
     output:
     //path '*_gwas_chr*.log', emit: assoc_log
     //path '*.regenie', emit: assoc_results
-    tuple val(phenotype_name), path('*.regenie'), path('*_gwas_chr*.log')
+    tuple val(phenotype_name), path('*.regenie.gz'), path('*_gwas_chr*.log')
 
     script:
-    pgen_prefix = "${params.genofolder}/${params.genoid}_chr${chr}"
+    pgen_prefix = "${params.genofolder}/${params.genoid}_${chr}"
     logchr      = "${params.id}_gwas_chrom${chr}.log"
 
     //Check if covars set for options to allow skipping if unset
@@ -528,14 +540,22 @@ process run_regenie_step2{
         covarnames_checked = ""
     }
 
-    if (params.covarnames_cat){
-        covarnames_cat_checked = "--catCovarList " + params.covarnames_cat
+    if (params.covarnames_cat || params.pheno_specific_batch){
+        cat_covars = params.covarnames_cat
+        if(params.pheno_specific_batch){
+            cat_covars = cat_covars + ",batch_" + phenotype_name
+        }
+        covarnames_cat_checked = "--catCovarList " + cat_covars 
     }else{
         covarnames_cat_checked = ""
     }
 
     """
     #Skipping logging for now, pendig removal or not from plink2 implementation, should slim down shell code and adapt groovy solutions
+    
+    #--minMAC ${params.mac} \
+    #--minINFO ${params.info} \
+
 
     #outfile_prefix="${params.id}_gwas_chr"${chr} # OBS!! : Naming convention also used elsewhere!
     outfile_prefix="${params.id}_gwas_chr${chr}_${phenotype_name}" # OBS!! : Naming convention also used elsewhere!
@@ -549,8 +569,12 @@ process run_regenie_step2{
         --bsize ${params.bsize2} \
         --pred fit_out_${phenotype_name}_pred.list \
         --out \${outfile_prefix} \
+        --gz \
+        --maxCatLevels 200 \
+        --par-region b37 \
         --minMAC ${params.mac} \
-        --minINFO ${params.info}
+        --minINFO ${params.info} \
+        --niter 300 \
         ${params.universal_param}
     """
 
@@ -600,7 +624,8 @@ process run_cojo {
     script:
 
     """
-    gcta64  --bfile ${params.genofolder}/${params.cojo_ref_bed_genoid}_chr${chr}  --thread-num 16 --chr ${chr} --cojo-file ${cojo_input_file} --cojo-slct --cojo-p ${params.cojo_pval} --cojo-wind ${params.cojo_window} --cojo-collinear ${params.cojo_colline} --out ${params.id}_${phenotype_name}_chr${chr}
+    touch ${params.id}_${phenotype_name}_chr${chr}.jma.cojo
+    gcta64  --bfile ${params.genofolder}/${params.cojo_ref_bed_genoid}_${chr}  --thread-num 16 --chr ${chr} --cojo-file ${cojo_input_file} --cojo-slct --cojo-p ${params.cojo_pval} --cojo-wind ${params.cojo_window} --cojo-collinear ${params.cojo_colline} --out ${params.id}_${phenotype_name}_chr${chr}
     """
 
 //ref for dev from settings
@@ -708,7 +733,7 @@ process finish_log{
 process create_report_plink {
     label 'long_job_16_core'
     label 'R_4_1_1'
-    publishDir "${params.id}/association"
+    publishDir "${params.id}/report"
     
     input:
     path gwas_params
@@ -719,6 +744,7 @@ process create_report_plink {
 
     output:
     path '*.html'
+    path 'lambda_*.txt', emit: lambda
 
     
     script:
@@ -749,11 +775,10 @@ process create_report_regenie {
 
     output:
     path '*.html'
+    path '*.RData'
+    path 'lambda_*.txt', emit: lambda
     
     
-    //path gwas_signif
-    //path gwas_sumstats
-    //path gwas_data
 
     
     script:
@@ -763,7 +788,31 @@ process create_report_regenie {
     #echo "${chrom_str}"
 
     ${params.script_dir}/review_gwas_regenie.R ${params.id} ${pname} ${chrom_str} ${params.script_dir}
+
+
+
     """
+
+
+
+}
+
+process concat_lambdas{
+    label 'short_job_1_core'
+    publishDir "${params.id}/report"
+
+    input:
+    path single_lambda 
+
+    output:
+    path "lambdas.tsv"
+
+    script:
+    """
+    cat *.txt > lambdas.tsv
+    """
+
+
 }
 
 
@@ -781,7 +830,20 @@ workflow{
             check_pheno_nonmissing(phenoname_channel)
         }
         run_regenie_step1(check_pheno_nonmissing.out)
-        run_regenie_step2(chr_channel, run_regenie_step1.out)
+        //run_regenie_step1.out.view()
+
+        step1_branched = run_regenie_step1.out.branch
+        {
+            converged: (it[1].size() == 3)
+            non_converged: (it[1].size() == 2)
+            error_state: true
+        }
+        //step1_branched.converged.view()
+        //step1_branched.non_converged.view()
+
+        run_regenie_step2(chr_channel, step1_branched.converged)
+        list_nonconverged_phenotypes(step1_branched.non_converged.collect())
+
         if(params.run_cojo){
             convert_cojo_input_regenie(run_regenie_step2.out.groupTuple())
             run_cojo(chr_channel, convert_cojo_input_regenie.out.groupTuple())
@@ -798,6 +860,7 @@ workflow{
     else if(params.assoc == 'regenie'){
         //create_report_regenie(create_parameterfile.out, phenoname_channel, chr_channel.collect(), run_regenie_step2.out.assoc_results.collect(), run_regenie_step2.out.assoc_log.collect())
         create_report_regenie(create_parameterfile.out, chr_channel.collect(), run_regenie_step2.out.groupTuple())
+        concat_lambdas(create_report_regenie.out.lambda.collect())
     }
 }
 

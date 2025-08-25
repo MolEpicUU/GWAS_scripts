@@ -19,8 +19,6 @@ if(length(args) < 4) {
 }
 
 
-
-
 ident = args[1]
 phenoname = args[2]
 chrom_list = args[3]
@@ -42,16 +40,34 @@ max_xls = 500                   # max. number of significant hits in Excel file 
 
 
 ## +++ Libraries
-
 suppressMessages(suppressWarnings(library(data.table)))   
 suppressWarnings(library(WriteXLS))
 suppressWarnings(library(rmarkdown))
 suppressMessages(suppressWarnings(library(car)))  	# vif  
 suppressMessages(suppressWarnings(library(CMplot))) 	# CMplot
+
 # library(qqman)  # alternative for Manhattan and QQ-plot
 # setDTthreads(threads = 0)
 
+#####
+#For metagenomics run to read species translation for ids
+suppressMessages(suppressWarnings(library(readxl)))
+species_info <- read_excel("/castor/project/proj_nobackup/Projects/gwas_microbiome/resources/HG3.A.7_tax.xlsx")
+names(species_info)[names(species_info) == '...1'] <- 'id'
 
+meta_maintax    = species_info$MainTax[species_info$id %in% phenoname]
+meta_maintax_nospace = gsub('/', '_', meta_maintax)
+meta_maintax_nospace = gsub('', '_', meta_maintax)
+meta_level      = species_info$Level[species_info$id %in% phenoname]
+meta_subspecies = species_info$subspecies[species_info$id %in% phenoname]
+meta_species    = species_info$species[species_info$id %in% phenoname]
+meta_genus      = species_info$genus[species_info$id %in% phenoname]
+meta_family     = species_info$family[species_info$id %in% phenoname]
+meta_order      = species_info$order[species_info$id %in% phenoname]
+meta_class      = species_info$class[species_info$id %in% phenoname]
+meta_phylum     = species_info$order[species_info$id %in% phenoname]
+
+#####
 
 
 ## +++ Auxiliary functions
@@ -131,7 +147,10 @@ parameters = strsplit(parameters, "\\s+")
 # mandatory entries with 2 columns:
 to_assign = c("plink2_version", "genotype_id", "phenofile", "covarfile", "covarname", "mac", "maf", "vif", "sample_max_miss", "marker_max_miss", "hwe_pval", "machr2_low", "machr2_high", "regenie_bsize1", "regenie_bsize2", "regenie_trait_type", "regenie_info", "regenie_covarnames_cat")
 for (var in to_assign) {
-  row = unlist(parameters[grep(var, parameters)]) 
+  #row = unlist(parameters[grep(var, parameters)])
+  row = unlist(parameters[unlist(lapply(parameters, function(x) var %in%  x[1]))]) #TODO: The above matching is risky, will fail if param subset of other name or value!!! Same below, change!
+
+
   if(length(row) == 0) stop(paste("\n\n  ERROR (review_gwas.R): The mandatory entry '", var, "' is missing in the parameter file '", parfile, "'.\n\n")) 
   assign(row[1], row[2])
 }
@@ -157,7 +176,7 @@ for (var in to_assign) {
 
 # Rmarkdown templates :
 
-rmd = "gwas_report_regenie.Rmd"
+rmd = "gwas_report_regenie_meta.Rmd"
 rmd_source = paste(scripts, rmd, sep = "/")
 rmd_main = paste(getwd(), rmd, sep = "/")
 if(!file.exists(rmd_source)) stop(paste("\n\n  ERROR (review_gwas.R): Rmarkdown template",  rmd_source,  "not found.\n\n"))
@@ -223,7 +242,7 @@ cat("\n")
 # OBS!! autosomes only! chrom X,Y won't work ! 
 
 
-pattern = paste(phenoname, "\\.regenie$", sep="")
+pattern = paste(phenoname, "\\.regenie.gz$", sep="")
 files_available = list.files(pattern = pattern)
 if(length(files_available) != length(chromosomes)) 
   stop(paste("\n\n  ERROR (review_gwas.R) : It seems we do not have exactly one output file for each chromosome.\n\n"))
@@ -240,7 +259,7 @@ gwas = data.frame(CHROM = integer(), POS = integer(), ID = character(), REF = ch
 for (chr in chromosomes)  {
   cat(paste("\n  === Collecting results for chromosome", chr, "===\n"))    
   #regression_output = paste0(ident, "_gwas_chr", chr, ".", phenoname, ".glm.", regtype)   # name defined in "gwas_chr.sh" 
-  regression_output = paste0(ident, "_gwas_chr", chr, "_", phenoname, "_", phenoname, ".regenie")   # name defined in "gwas_chr.sh" 
+  regression_output = paste0(ident, "_gwas_chr", chr, "_", phenoname, "_", phenoname, ".regenie.gz")   # name defined in "gwas_chr.sh" 
     
   if(!file.exists(regression_output)) stop(paste("\n\n  ERROR (review_gwas.R) : Could not find the regression results: '", regression_output, "'.\n\n")) 
   gwas_chr = fread(regression_output, nThread = 16, header = TRUE, check.names = FALSE, sep = " ", showProgress = FALSE, stringsAsFactors = FALSE)
@@ -311,8 +330,11 @@ cat(paste("\n>>>",names(gwas), "<<<\n"))
 gwas_filt <- gwas[, c("CHROM", "POS", "ID", "REF", "A1", "A1", "A1_FREQ", "OBS_CT", "BETA", "SE", "P", "LOG10P")]
 names(gwas_filt) <- c("CHROM", "POS", "ID", "REF", "A1", "A1", "A1_FREQ", "OBS_CT", "BETA", "SE", "P", "LOG10P")
 
-save(gwas_filt, file = gwas_results)   # debugging   use "render_review.R"   ##Changed to gwas_filt
-cat(paste("  GWAS results saved to '", gwas_results, "' \n\n")) 
+# Commenting out to reduce footprint for results in metabolon gwas /PL
+#save(gwas_filt, file = gwas_results)   # debugging   use "render_review.R"   ##Changed to gwas_filt
+#cat(paste("  GWAS results saved to '", gwas_results, "' \n\n")) 
+
+
 # du -h gwas_results.RData  #  686M	gwas_results.RData   # TOO big to save 
 
 
@@ -852,10 +874,10 @@ lambda = median(obs.stats, na.rm = TRUE)/median(expect.stats, na.rm = TRUE) 	# G
 # lambda = median(obs.stats)/qchisq(0.5, 1) # tiny difference for small numbers of p-values  p < 20000 
  
  
+#Write phenotype name and lambda to file for later collection into a file with all lambdas for the run
+#phenoname lambda
 
-
-
-
+writeLines(paste(phenoname, "\t", lambda, sep=""), paste("lambda_", phenoname, ".txt", sep=""))
 
 ## +++ Excel with unpruned or pruned global significant markers     
 
@@ -1005,22 +1027,22 @@ cat(paste("Done in", round(diff_time,2), "seconds.\n"))
 # can use the "manhat" frame, see CMplot_chunk.R 
 # gwas = get(load("gwas_results.RData"))   # /castor/project/proj/GWAS_DEV/liver9
 
-cat("  Creating SNP density plot ...  ") 
-start_time = Sys.time()  
+##cat("  Creating SNP density plot ...  ") 
+##start_time = Sys.time()  
 
-snp_density_plot = paste(ident, phenoname, "snp_density.png", sep = "_")  # liver9_liver_fat_a_snp_density.png
-png(snp_density_plot, width = 1024, height = 768)
+##snp_density_plot = paste(ident, phenoname, "snp_density.png", sep = "_")  # liver9_liver_fat_a_snp_density.png
+##png(snp_density_plot, width = 1024, height = 768)
 #CMplot(manhat, plot.type = "d", bin.size = 1e6, chr.den.col = c("darkgreen", "yellow", "red"), file = "png", memo="", dpi = 300,
  #      file.output = TRUE, verbose = FALSE, width = 12, height = 8)
 
-CMplot(manhat, plot.type = "d", bin.size = 1e6, chr.den.col = c("darkgreen", "yellow", "red"), memo="", dpi = 300,
-       file.output = FALSE, verbose = FALSE, width = 12, height = 8)
+##CMplot(manhat, plot.type = "d", bin.size = 1e6, chr.den.col = c("darkgreen", "yellow", "red"), memo="", dpi = 300,
+##       file.output = FALSE, verbose = FALSE, width = 12, height = 8)
 
-invisible(dev.off())
+##invisible(dev.off())
 
-stop_time = Sys.time()
-diff_time = stop_time - start_time 
-cat(paste("Done in", round(diff_time,2), "seconds.\n"))
+##stop_time = Sys.time()
+##diff_time = stop_time - start_time 
+##cat(paste("Done in", round(diff_time,2), "seconds.\n"))
 
 
 
@@ -1049,18 +1071,18 @@ cat(paste("Done in", round(diff_time,2), "seconds.\n"))
  
 ## +++ Global histogram of beta-values
 
-cat("  Creating histogram for regression slopes ...  ") 
-start_time = Sys.time()  
+##cat("  Creating histogram for regression slopes ...  ") 
+##start_time = Sys.time()  
   
-txt = paste(ident, ": Histogram of beta-values") 
-histo_plot = paste(ident, phenoname, "beta_hist.png", sep = "_") 
-png(histo_plot, width = 1024, height = 768)
-hist(gwas$BETA, col = "red", breaks = 50, xlab = "beta", main = txt, font.main = 1) 
-invisible(dev.off())
+##txt = paste(ident, ": Histogram of beta-values") 
+##histo_plot = paste(ident, phenoname, "beta_hist.png", sep = "_") 
+##png(histo_plot, width = 1024, height = 768)
+##hist(gwas$BETA, col = "red", breaks = 50, xlab = "beta", main = txt, font.main = 1) 
+##invisible(dev.off())
   
-stop_time = Sys.time()
-diff_time = stop_time - start_time 
-cat(paste("Done in", round(diff_time,2), "seconds.\n"))
+##stop_time = Sys.time()
+##diff_time = stop_time - start_time 
+##cat(paste("Done in", round(diff_time,2), "seconds.\n"))
 
  
 
@@ -1068,21 +1090,21 @@ cat(paste("Done in", round(diff_time,2), "seconds.\n"))
  
 ## +++ Global kernel density plot of beta-values 
  
-cat("  Creating kernel density plot for regression slopes ...  ") 
-start_time = Sys.time()  
+##cat("  Creating kernel density plot for regression slopes ...  ") 
+##start_time = Sys.time()  
  
-d = density(gwas$BETA, na.rm = TRUE)
-txt = paste(ident, ": Kernel density plot for beta")
-kernel_plot = paste(ident, phenoname, "beta_kernel.png", sep = "_")
-png(kernel_plot, width = 1024, height = 768)
-plot(d, main = txt, col = "red", font.main = 1)
-polygon(d, col="red", border="darkgrey")  # fill 
-rug(jitter(gwas$BETA))
-invisible(dev.off())
+##d = density(gwas$BETA, na.rm = TRUE)
+##txt = paste(ident, ": Kernel density plot for beta")
+##kernel_plot = paste(ident, phenoname, "beta_kernel.png", sep = "_")
+##png(kernel_plot, width = 1024, height = 768)
+##plot(d, main = txt, col = "red", font.main = 1)
+##polygon(d, col="red", border="darkgrey")  # fill 
+##rug(jitter(gwas$BETA))
+##invisible(dev.off())
   
-stop_time = Sys.time()
-diff_time = stop_time - start_time 
-cat(paste("Done in", round(diff_time,2), "seconds.\n"))
+##stop_time = Sys.time()
+##diff_time = stop_time - start_time 
+##cat(paste("Done in", round(diff_time,2), "seconds.\n"))
 
  
  
@@ -1121,9 +1143,9 @@ nr_geno = NA
 if(!file.exists(filtered_file)) stop(paste("\n\n  ERROR (review_gwas.R): File", filtered_file, "not found.\n\n"))  
 if(!file.exists(qq_plot)) stop(paste("\n\n  ERROR (review_gwas.R): File", qq_plot, "not found.\n\n"))      
 if(!file.exists(man_plot)) stop(paste("\n\n  ERROR (review_gwas.R): File", man_plot, "not found.\n\n"))        
-if(!file.exists(histo_plot)) stop(paste("\n\n  ERROR (review_gwas.R): File", histo_plot, "not found.\n\n"))     
-if(!file.exists(kernel_plot)) stop(paste("\n\n  ERROR (review_gwas.R): File", kernel_plot, "not found.\n\n"))
-if(!file.exists(snp_density_plot)) stop(paste("\n\n  ERROR (review_gwas.R): File", snp_density_plot, "not found.\n\n"))
+##if(!file.exists(histo_plot)) stop(paste("\n\n  ERROR (review_gwas.R): File", histo_plot, "not found.\n\n"))     
+##if(!file.exists(kernel_plot)) stop(paste("\n\n  ERROR (review_gwas.R): File", kernel_plot, "not found.\n\n"))
+##if(!file.exists(snp_density_plot)) stop(paste("\n\n  ERROR (review_gwas.R): File", snp_density_plot, "not found.\n\n"))
 # if(!file.exists(cookplot)) stop(paste("\n\n  ERROR (review_gwas.R): File", cookplot, "not found.\n\n"))    
 # regarding residuals:
 # if(!file.exists(datafile)) stop(paste("\n\n  ERROR (review_gwas.R): File", datafile, "not found.\n\n"))
@@ -1207,9 +1229,9 @@ plist["clump_neargene_file"] = clump_neargene_file
 plist["signif_neargene_file"] = signif_neargene_file
 plist["qq_plot"] = qq_plot
 plist["man_plot"] = man_plot
-plist["snp_density_plot"] = snp_density_plot
-plist["histo_plot"] = histo_plot
-plist["kernel_plot"] = kernel_plot
+##plist["snp_density_plot"] = snp_density_plot
+##plist["histo_plot"] = histo_plot
+##plist["kernel_plot"] = kernel_plot
 #plist["datafile"] = datafile
 #plist["residfile"] = residfile
 #plist["metricfile"] = metricfile
@@ -1219,9 +1241,21 @@ plist["kernel_plot"] = kernel_plot
 #plist["qqplotres"] = qqplotres
 #plist["cookplot"] = cookplot
 
-        
 
-htmlfile = paste(ident, phenoname, "report.html", sep = "_")    
+#Parameters for metagenomics id species etc.
+
+plist["meta_maintax"] = meta_maintax
+plist["meta_level"] = meta_level
+plist["meta_subspecies"] = meta_subspecies
+plist["meta_species"] = meta_species
+plist["meta_genus"] = meta_genus
+plist["meta_family"] = meta_family
+plist["meta_order"] = meta_order
+plist["meta_class"] = meta_class
+plist["meta_phylum"] = meta_phylum
+
+
+htmlfile = paste(ident, phenoname, meta_maintax_nospace, "report.html", sep = "_")
 
 plist_file = paste(ident, phenoname, "rmd_review_params.RData", sep = "_")  
 save(plist, file = plist_file)

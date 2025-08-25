@@ -64,7 +64,7 @@ results$SE = signif(results$SE, 3)
 
 
 ```{r signif_table, echo = FALSE, warning = FALSE}   
-datatable(results, filter = "top", class = 'cell-border stripe', escape = c(-2, -4, -12), width = 1200) %>% formatStyle('BETA', color = 'green') 
+datatable(results, filter = "top", class = 'cell-border stripe', escape = c(-2, -4, -12), width = 1200, options(DT.warn.size=FALSE)) %>% formatStyle('BETA', color = 'green') 
 ```
 
 

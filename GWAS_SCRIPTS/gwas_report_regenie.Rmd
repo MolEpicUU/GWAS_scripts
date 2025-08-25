@@ -49,10 +49,10 @@ params:
   signif_neargene_file: unknown   
   qq_plot: unknown
   man_plot: unknown
-  snp_density_plot: unknown
-  histo_plot: unknown
+  ##snp_density_plot: unknown
+  ##histo_plot: unknown
   #cookplot: unknown  
-  kernel_plot: unknown
+  ##kernel_plot: unknown
   #datafile: unknown
   #residfile: unknown
   #metricfile: unknown
@@ -117,10 +117,10 @@ clump_neargene_file = params$clump_neargene_file
 signif_neargene_file = params$signif_neargene_file 
 qq_plot = params$qq_plot
 man_plot = params$man_plot
-snp_density_plot = params$snp_density_plot
-histo_plot = params$histo_plot
+##snp_density_plot = params$snp_density_plot
+##histo_plot = params$histo_plot
 #cookplot = params$cookplot
-kernel_plot = params$kernel_plot 
+##kernel_plot = params$kernel_plot 
 #datafile = params$datafile
 #residfile = params$residfile
 #metricfile = params$metricfile
@@ -155,13 +155,13 @@ run for the phenotype <span style="color:red"> `r phenoname` </span>.
 
 ## Methods
 
-The association between `r phenoname` and each variant with a minor allele count $\ge$ `r mac` and 
-an imputation quality metric $r^2 \ge$ `r machr2_low` was tested using the Regenie software (https://rgcgithub.github.io/regenie/).
+The association between `r phenoname` and each variant with a minor allele count > `r mac` and 
+an imputation quality metric r^2 > `r regenie_info` was tested using the Regenie software (https://rgcgithub.github.io/regenie/).
 
 A total of `r prettyNum(as.integer(nr_markers), big.mark=".", decimal.mark=",")` markers (after filtering).
 Markers having a Hardy-Weinberg equilibrium exact test p-value below `r formatC(hwe_pval, format = "e", digits = 1)` were filtered out.  
 `r prettyNum(as.integer(nr_sigmarkers), big.mark=".", decimal.mark=",")` significant markers have been found.
-The genomic inflation factor was $\lambda =$ `r lambda`. 
+The genomic inflation factor was lambda = `r lambda`. 
 
 
 ```{r setup, echo = FALSE}
@@ -177,7 +177,6 @@ The regenie program was run with the following parameters:
 
  - Minor allele count cutoff: `r prettyNum(mac, big.mark=".", decimal.mark=",")`
  - Minimum imputation quality: `r prettyNum(regenie_info, big.mark=".", decimal.mark=",")`
- - Hardy-Weinberg exact test p-value threshold: `r prettyNum(hwe_pval, big.mark=".", decimal.mark=",")`
  - Step 1 genotype block size (bsize): `r prettyNum(regenie_bsize1, big.mark=".", decimal.mark=",")`
  - Step 2 genotype block size (bsize): `r prettyNum(regenie_bsize2, big.mark=".", decimal.mark=",")`
  - Trait type: `r prettyNum(regenie_trait_type, big.mark=".", decimal.mark=",")`
@@ -308,29 +307,6 @@ knitr::include_graphics(plot)
 ```
 
 
-## SNP density plot
-
-```{r, echo=FALSE, fig.cap="", out.width = '100%', fig.align='left'}
-plot = paste(workfolder, snp_density_plot, sep ="/") 
-knitr::include_graphics(plot)
-```
-
-
-
-## Histogram of $\beta$ values 
-
-```{r, echo=FALSE, fig.cap="", out.width = '100%', fig.align='left'}
-plot = paste(workfolder, histo_plot, sep ="/")
-knitr::include_graphics(plot)
-```
-
-
-## Kernel density plot of $\beta$ values 
-
-```{r, echo=FALSE, fig.cap="", out.width = '100%', fig.align='left'}
-plot = paste(workfolder, kernel_plot, sep ="/")
-knitr::include_graphics(plot)
-```
 
 <br> 
 
@@ -346,7 +322,7 @@ parfile_path = paste(workfolder, parfile, sep = "/")
 
  - GWAS **workfolder** `r workfolder`
  - **Parameter file**: `r parfile_path`   
- - <uwe.menzel@medsci.uu.se> 
+ - <per.lundmark@medsci.uu.se> 
  
 <br> 
 

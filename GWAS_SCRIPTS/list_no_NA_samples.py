@@ -27,11 +27,11 @@ with open(pheno_path, 'r') as data_file:
     header = data_file.readline()
 
     #Find index of phenotype of interest
-    headers = header.strip().split("\t")
+    headers = header.strip().split()
     pheno_index = headers.index(pheno_name)
 
     for row in data_file:
-        fields = row.split("\t")
+        fields = row.split()
         fam_id = fields[0]
         ind_id = fields[1]
         pheno = fields[pheno_index]
@@ -44,11 +44,11 @@ covars = covar_names.replace(' ', '').split(",")
 #Check covars
 with open(covar_path, 'r') as covar_file:
     header = covar_file.readline()
-    headers = header.strip().split("\t")
+    headers = header.strip().split()
     for covar in covars:
         covar_index = headers.index(covar) 
         for row in covar_file:
-            fields = row.strip().split("\t")
+            fields = row.strip().split()
             fam_id = fields[0]
             ind_id = fields[1]
             covar_val = fields[covar_index]
